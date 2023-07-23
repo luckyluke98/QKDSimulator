@@ -93,7 +93,7 @@ def main():
             json.dump(js_graph, f, ensure_ascii=False)
         sim(current_sim + graph_json_seq, args.sim_time, args.key_size, args.mess_rate)
     
-    #Se sepcificato solo quello netX
+    #Se sepcificato solo quello networkX
     elif args.netx_graph != None and args.seq_graph == None:
         with open(args.netx_graph, 'r') as f:
             js_graph = json.load(f)
