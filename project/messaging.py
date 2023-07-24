@@ -36,8 +36,6 @@ class MessagingProtocol(Protocol):
         pass
 
     def start(self, text: str, tl, rate, forwarding=False):
-        if not forwarding:
-            MessagingProtocol.sent_messages += 1
         if len(self.key_manager.keys) > 0:
             key = self.key_manager.consume()
             key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
@@ -61,15 +59,21 @@ class MessagingProtocol(Protocol):
             self.own.send_message(self.other_node, new_msg)
             
             if not forwarding:
-                time = numpy.random.exponential(rate, 1)[0]
-                process = Process(self, "start", [text, tl, rate])
-                event = Event(tl.now() + (time * 1000000000000), process)
-                tl.schedule(event)
-            
-            return
-        MessagingProtocol.dropped_messages += 1
-        print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
+                MessagingProtocol.sent_messages += 1
+                print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
+                
+        else:
+            MessagingProtocol.dropped_messages += 1
+            print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
+        
+        if not forwarding:
+            time = numpy.random.exponential(rate, 1)[0]
+            process = Process(self, "start", [text, tl, rate])
+            event = Event(tl.now() + (time * 1000000000000), process)
+            tl.schedule(event)
+        
         return
+        
 
     def received_message(self, src: str, msg: Message):
         assert msg.msg_type == MsgType.TEXT_MESS

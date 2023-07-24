@@ -159,6 +159,9 @@ class QKDTopoExt(Topology):
                 dst_node_name = f"node{random.randrange(0, node_num)}"
             
             dest[super_node] = dst_node_name
+            
+        #for d in dest.keys():
+        #    print(d, dest[d])
         
         for super_node in self.super_qkd_nodes.values():
             text = "ciao" 

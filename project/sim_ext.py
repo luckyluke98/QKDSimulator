@@ -21,8 +21,7 @@ import os
 def handler(signal_received, frame):
     print('\nThe Simulation is terminated manually. Exiting gracefully...')
     print(f'Delivered messages: {MessagingProtocol.delivered_messages}')
-    r = MessagingProtocol.sent_messages - MessagingProtocol.delivered_messages - MessagingProtocol.dropped_messages
-    print(f'Dropped messages : {MessagingProtocol.dropped_messages + r}')
+    print(f'Dropped messages : {MessagingProtocol.dropped_messages}')
     print(f'Sent messages: {MessagingProtocol.sent_messages}')
     exit(0)
 
@@ -54,8 +53,7 @@ def sim(graph_json_seq, sim_time, key_size, mess_rate):
     timeline.run()
     
     print(f'Delivered messages: {MessagingProtocol.delivered_messages}')
-    r = MessagingProtocol.sent_messages - MessagingProtocol.delivered_messages - MessagingProtocol.dropped_messages
-    print(f'Dropped messages : {MessagingProtocol.dropped_messages + r}')
+    print(f'Dropped messages : {MessagingProtocol.dropped_messages}')
     print(f'Sent messages: {MessagingProtocol.sent_messages}')
 
 def main():
