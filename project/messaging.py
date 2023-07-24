@@ -31,11 +31,20 @@ class MessagingProtocol(Protocol):
         self.other_node = other_node
         self.super_qkd = superQKD
         self.key_manager = None
+        self.rate = None
 
     def init(self):
         pass
 
-    def start(self, text: str, tl, rate, forwarding=False):
+    def start(self, text: str, tl, forwarding):
+        if not forwarding:
+            print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
+            MessagingProtocol.sent_messages += 1
+            time = numpy.random.exponential(self.rate, 1)[0]
+            process = Process(self, "start", [text, tl, False])
+            event = Event(tl.now() + (time * 1000000000000), process)
+            tl.schedule(event)
+            
         if len(self.key_manager.keys) > 0:
             key = self.key_manager.consume()
             key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
@@ -57,23 +66,12 @@ class MessagingProtocol(Protocol):
             new_msg.protocol_type = type(self)
             
             self.own.send_message(self.other_node, new_msg)
-            
-            if not forwarding:
-                MessagingProtocol.sent_messages += 1
-                print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
                 
         else:
             MessagingProtocol.dropped_messages += 1
             print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
         
-        if not forwarding:
-            time = numpy.random.exponential(rate, 1)[0]
-            process = Process(self, "start", [text, tl, rate])
-            event = Event(tl.now() + (time * 1000000000000), process)
-            tl.schedule(event)
-        
         return
-        
 
     def received_message(self, src: str, msg: Message):
         assert msg.msg_type == MsgType.TEXT_MESS

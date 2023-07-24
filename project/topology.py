@@ -145,9 +145,7 @@ class QKDTopoExt(Topology):
     def start_qkd(self):
         for super_node in self.super_qkd_nodes.values():
             for tr in super_node.transceivers.values():
-                
                 if tr.qkd_node.protocol_stack[0].role == 0 and tr.qkd_node.protocol_stack[1].role == 0:
-                    
                     tr.start_qkd()
     
     def start_messaging(self, tl, rate):
@@ -159,9 +157,19 @@ class QKDTopoExt(Topology):
                 dst_node_name = f"node{random.randrange(0, node_num)}"
             
             dest[super_node] = dst_node_name
-            
+        
+        for super_node in self.super_qkd_nodes.values():
+            for tr in super_node.transceivers.values():
+                tr.qkd_node_p.rate = rate
+          
         #for d in dest.keys():
         #    print(d, dest[d])
+        # text = "ciao" 
+        # text = bytes(text, 'utf-8') # b'ciao'
+        # text = list(text)
+        # message = {"dest": "node9", "payload": text}
+        # message = json.dumps(message)
+        # self.super_qkd_nodes["node0"].send_message(tl, "node9", message, False)
         
         for super_node in self.super_qkd_nodes.values():
             text = "ciao" 
@@ -169,7 +177,7 @@ class QKDTopoExt(Topology):
             text = list(text)
             message = {"dest": dest[super_node.name], "payload": text}
             message = json.dumps(message)
-            super_node.send_message(tl, dest[super_node.name], message, rate, False)
+            super_node.send_message(tl, dest[super_node.name], message, False)
         
                     
                     
