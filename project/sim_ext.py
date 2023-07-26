@@ -18,11 +18,15 @@ from datetime import datetime
 import argparse
 import os
 
+tick = 0
+
 def handler(signal_received, frame):
+    global tick
     print('\nThe Simulation is terminated manually. Exiting gracefully...')
     print(f'Delivered messages: {MessagingProtocol.delivered_messages}')
     print(f'Dropped messages : {MessagingProtocol.dropped_messages}')
     print(f'Sent messages: {MessagingProtocol.sent_messages}')
+    print("Execution time %.2f sec" % (time.time() - tick))
     exit(0)
 
 def gen_network(filepath, nodes_number):
@@ -41,11 +45,13 @@ def draw_to_file(graph, filepath):
     plt.savefig(filepath, dpi=500, orientation='landscape', bbox_inches='tight')
 
 def sim(graph_json_seq, sim_time, key_size, mess_rate):
+    global tick
     timeline = Timeline(sim_time * 1000000000000)
     network = QKDTopoExt(graph_json_seq, timeline)
     
     network.add_key_managers(key_size, math.inf)
     network.start_pairing()
+    tick = time.time()
     network.start_qkd()
     network.start_messaging(timeline, mess_rate)
     
@@ -55,6 +61,7 @@ def sim(graph_json_seq, sim_time, key_size, mess_rate):
     print(f'Delivered messages: {MessagingProtocol.delivered_messages}')
     print(f'Dropped messages : {MessagingProtocol.dropped_messages}')
     print(f'Sent messages: {MessagingProtocol.sent_messages}')
+    print("Execution time %.2f sec" % (time.time() - tick))
 
 def main():
     current_sim = 'project/simulations/sim_' + str(datetime.now().strftime('%Y-%m-%d_%H:%M:%S')) + '/'

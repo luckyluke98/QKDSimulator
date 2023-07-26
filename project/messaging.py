@@ -38,7 +38,7 @@ class MessagingProtocol(Protocol):
 
     def start(self, text: str, tl, forwarding):
         if not forwarding:
-            print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
+            print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
             MessagingProtocol.sent_messages += 1
             time = numpy.random.exponential(self.rate, 1)[0]
             process = Process(self, "start", [text, tl, False])
@@ -69,7 +69,7 @@ class MessagingProtocol(Protocol):
                 
         else:
             MessagingProtocol.dropped_messages += 1
-            print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
+            print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
         
         return
 
@@ -91,13 +91,13 @@ class MessagingProtocol(Protocol):
         if packet["dest"] == self.super_qkd.name:
             MessagingProtocol.delivered_messages += 1
             
-            print(f"[{self.own.name}]\nMessage received. At simulation time: {self.own.timeline.now() / 1000000000000} s")
+            print(f"[{self.own.name}]\nMessage received. At simulation time: {self.own.timeline.now() * 1.0e-12} s")
             print(f"Encrypted Message: {message}")
             print(f"Decrypted Message: {plaintext}\n")
 
         else:
             packet["payload"] = list(plaintext)
-            print(f"[{self.own.name}]\nForwarding... At simulation time: {self.own.timeline.now() / 1000000000000} s\n")
+            print(f"[{self.own.name}]\nForwarding... At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
             self.super_qkd.send_message(self.own.timeline, packet["dest"], json.dumps(packet), True)
 
     def add_key_manager(self, key_manager):
