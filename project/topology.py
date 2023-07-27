@@ -161,15 +161,6 @@ class QKDTopoExt(Topology):
         for super_node in self.super_qkd_nodes.values():
             for tr in super_node.transceivers.values():
                 tr.qkd_node_p.rate = rate
-          
-        #for d in dest.keys():
-        #    print(d, dest[d])
-        # text = "ciao" 
-        # text = bytes(text, 'utf-8') # b'ciao'
-        # text = list(text)
-        # message = {"dest": "node9", "payload": text}
-        # message = json.dumps(message)
-        # self.super_qkd_nodes["node0"].send_message(tl, "node9", message, False)
         
         for super_node in self.super_qkd_nodes.values():
             text = "ciao" 

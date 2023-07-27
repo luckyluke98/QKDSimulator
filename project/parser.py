@@ -24,7 +24,7 @@ def netparse(filepath, savepath):
             + str(l['source']) + 'to' + str(l['target']),
             'source': 'node' + str(l['source']),
             'destination': 'node' + str(l['target']),
-            'attenuation': 0.00001,
+            'attenuation': 0.0002,
             'distance': 1000,
             'polarization_fidelity' : 1
         }
@@ -45,7 +45,7 @@ def netparse(filepath, savepath):
             + str(l['target']) + 'to' + str(l['source']),
             'source': 'node' + str(l['target']),
             'destination': 'node' + str(l['source']),
-            'attenuation': 0.00001,
+            'attenuation': 0.0002,
             'distance': 1000,
             'polarization_fidelity' : 1
         }
