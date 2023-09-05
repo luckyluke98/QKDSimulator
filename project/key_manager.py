@@ -14,7 +14,7 @@ class KeyManager():
             
     def pop(self, key):
         self.keys.append(key)
-        self.times.append(self.timeline.now() * 1e-9)
+        #self.times.append(self.timeline.now() * 1e-9)
         
     def consume(self):
         return self.keys.pop(0)

@@ -17,8 +17,28 @@ import time
 from datetime import datetime
 import argparse
 import os
+import pandas as pd
+import numpy
 
 tick = 0
+
+def save_metrics():
+    res = pd.DataFrame(data=MessagingProtocol.d)
+    res.to_csv(current_sim + 'packet_result.csv')
+
+    graph_data = []
+
+    for super_node in network.super_qkd_nodes.values():
+        dropped = sent = 0
+        
+        for tr_node in super_node.transceivers.values():
+            dropped += tr_node.qkd_node_p.drop_mess
+            sent += tr_node.qkd_node_p.sent_mess
+        graph_data.append([dropped, sent])
+    
+    df = pd.DataFrame(numpy.array(graph_data), columns=["Dropped", "Sent"])
+    df.plot.bar()
+    plt.savefig(current_sim + 'node_result.pdf', dpi=300)
 
 def handler(signal_received, frame):
     global tick
@@ -27,6 +47,14 @@ def handler(signal_received, frame):
     print(f'Dropped messages : {MessagingProtocol.dropped_messages}')
     print(f'Sent messages: {MessagingProtocol.sent_messages}')
     print("Execution time %.2f sec" % (time.time() - tick))
+    print("Simulation time %.2f sec" % (timeline.now() * 1.0e-12))
+
+    save_metrics()
+
+    for super_node in network.super_qkd_nodes.values():
+        for tr_node in super_node.transceivers.values():
+            print(len(tr_node.qkd_node_km.keys))
+
     exit(0)
 
 def gen_network(filepath, nodes_number):
@@ -46,15 +74,17 @@ def draw_to_file(graph, filepath):
 
 def sim(graph_json_seq, sim_time, key_size, mess_rate):
     global tick
+    global network
+    global timeline
     timeline = Timeline(sim_time * 1000000000000)
     network = QKDTopoExt(graph_json_seq, timeline)
     
-    network.add_key_managers(key_size, math.inf)
+    network.add_key_managers(key_size, 200)
     network.start_pairing()
     tick = time.time()
     network.start_qkd()
     network.start_messaging(timeline, mess_rate)
-    
+
     timeline.init()
     timeline.run()
     
@@ -62,8 +92,14 @@ def sim(graph_json_seq, sim_time, key_size, mess_rate):
     print(f'Dropped messages : {MessagingProtocol.dropped_messages}')
     print(f'Sent messages: {MessagingProtocol.sent_messages}')
     print("Execution time %.2f sec" % (time.time() - tick))
+    print("Simulation time %.2f sec" % (timeline.now() * 1.0e-12))
+
+    for super_node in network.super_qkd_nodes.values():
+        for tr_node in super_node.transceivers.values():
+            print(len(tr_node.qkd_node_km.keys))
 
 def main():
+    global current_sim
     current_sim = 'project/simulations/sim_' + str(datetime.now().strftime('%Y-%m-%d_%H:%M:%S')) + '/'
     graph_json_ntx = 'graph_networkx.json'
     graph_json_seq = 'graph_sequence.json'
@@ -108,6 +144,8 @@ def main():
             json.dump(js_graph, f, ensure_ascii=False)
         netparse(current_sim + graph_json_ntx, current_sim + graph_json_seq)
         sim(current_sim + graph_json_seq, args.sim_time, args.key_size, args.mess_rate)
+    
+    save_metrics()
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ from enum import Enum, auto
 import json
 import numpy
 
+
 from sequence.topology.node import Node
 from sequence.protocol import Protocol
 from sequence.message import Message
@@ -18,10 +19,24 @@ class MsgType(Enum):
 
 
 class MessagingProtocol(Protocol):
-    
+
+    # For Metrics
     delivered_messages = 0
     dropped_messages = 0
     sent_messages = 0
+
+    d = {
+        'Packet': [],
+        'Source': [],
+        'Destination': [],
+        'Sent': [],
+        'Delivered': [],
+        'Dropped': [],
+        'Num. Hop': [],
+        'Sending Time': [],
+        'Sim. Time': [],
+        'Tot. Time': []
+    }
 
     def __init__(self, own: Node, name: str, other_name: str, other_node: str, superQKD):
         super().__init__(own, name)
@@ -32,6 +47,9 @@ class MessagingProtocol(Protocol):
         self.super_qkd = superQKD
         self.key_manager = None
         self.rate = None
+        self.del_mess = 0
+        self.drop_mess = 0
+        self.sent_mess = 0
 
     def init(self):
         pass
@@ -40,6 +58,7 @@ class MessagingProtocol(Protocol):
         if not forwarding:
             print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
             MessagingProtocol.sent_messages += 1
+            self.sent_mess += 1
             time = numpy.random.exponential(self.rate, 1)[0]
             process = Process(self, "start", [text, tl, False])
             event = Event(tl.now() + (time * 1000000000000), process)
@@ -68,7 +87,21 @@ class MessagingProtocol(Protocol):
             self.own.send_message(self.other_node, new_msg)
                 
         else:
+            packet = json.loads(text)
             MessagingProtocol.dropped_messages += 1
+            self.drop_mess += 1
+
+            if packet["hop"] == 0:
+                MessagingProtocol.append_metrics(
+                    packet["src"], packet["dest"], False, False, self.own.name, packet["hop"], 
+                    packet["time"]* 1.0e-12, self.own.timeline.now() * 1.0e-12, 
+                    (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
+            else:
+                MessagingProtocol.append_metrics(
+                    packet["src"], packet["dest"], True, False, self.own.name, packet["hop"], 
+                    packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
+                    (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
+
             print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
         
         return
@@ -88,8 +121,15 @@ class MessagingProtocol(Protocol):
         
         plaintext = OneTimePad.decrypt(message, key)
 
+        packet["hop"] += 1
+
         if packet["dest"] == self.super_qkd.name:
             MessagingProtocol.delivered_messages += 1
+            self.del_mess += 1
+            MessagingProtocol.append_metrics(
+                packet["src"], packet["dest"], True, True, None, packet["hop"], 
+                packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
+                (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
             
             print(f"[{self.own.name}]\nMessage received. At simulation time: {self.own.timeline.now() * 1.0e-12} s")
             print(f"Encrypted Message: {message}")
@@ -102,4 +142,19 @@ class MessagingProtocol(Protocol):
 
     def add_key_manager(self, key_manager):
         self.key_manager = key_manager
+
+    @staticmethod
+    def append_metrics(src, dest, sent, deliv, drop, num_hop, send_time, sim_time, time):
+        MessagingProtocol.d["Packet"].append(len(MessagingProtocol.d["Packet"]))
+        MessagingProtocol.d["Source"].append(src)
+        MessagingProtocol.d["Destination"].append(dest)
+        MessagingProtocol.d["Sent"].append(sent)
+        MessagingProtocol.d["Delivered"].append(deliv)
+        MessagingProtocol.d["Dropped"].append(drop)
+        MessagingProtocol.d["Num. Hop"].append(num_hop)
+        MessagingProtocol.d["Sending Time"].append(send_time)
+        MessagingProtocol.d["Sim. Time"].append(sim_time)
+        MessagingProtocol.d["Tot. Time"].append(time)
+
+
         

@@ -4,6 +4,7 @@ from sequence.kernel.process import Process
 from sequence.kernel.event import Event
 
 import numpy
+import json
 
 class Transceiver:
 
@@ -23,6 +24,9 @@ class Transceiver:
             tl.schedule(event)
         else:
             time = numpy.random.exponential(self.qkd_node_p.rate, 1)[0]
+            packet = json.loads(plaintext)
+            packet["time"] = tl.now() + (time * 1000000000000)
+            plaintext = json.dumps(packet)
             process = Process(self.qkd_node_p, "start", [plaintext, tl, False])
             event = Event(tl.now() + (time * 1000000000000), process)
             tl.schedule(event)

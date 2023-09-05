@@ -12,6 +12,7 @@ from super_qkd_node import SuperQKDNode
 from transceiver import Transceiver
 from messaging import MessagingProtocol
 from key_manager import KeyManager
+from custom_channel import CustomChannel
 
 import re
 import json
@@ -21,6 +22,7 @@ class QKDTopoExt(Topology):
     
     QKD_NODE = "QKDNode"
     P_FIDELITY = "polarization_fidelity"
+    B_RATE = "bit_rate"
     
     def __init__(self, conf_file_name: str, tl):
         self.super_qkd_nodes = {}
@@ -76,7 +78,7 @@ class QKDTopoExt(Topology):
                         cchannel = ClassicalChannel(cc_name, self.timeline, cc_distance)
                         cchannel.set_ends(tr.qkd_node, dst_tr_name)
                 
-                # quantum channel
+                # quantum channel (custom channel)
                 for qc in topo_config.get(self.ALL_Q_CHANNEL):
                     if qc[self.SRC] == src_node_name and qc[self.DST] == dst_node_name:
                         qc_name = qc[self.NAME]
@@ -84,7 +86,8 @@ class QKDTopoExt(Topology):
                         qc_attenuation = qc[self.ATTENUATION]
                         qc_polarization_fidelity = qc[self.P_FIDELITY]
                         
-                        qchannel = QuantumChannel(qc_name, self.timeline, qc_attenuation, qc_distance, qc_polarization_fidelity)
+                        qchannel = CustomChannel(qc_name, self.timeline, 0, qc_distance, 0.9)
+                        #qchannel = QuantumChannel(qc_name, self.timeline, qc_attenuation, qc_distance, 0.90)
                         qchannel.set_ends(tr.qkd_node, dst_tr_name)
                         
     def generate_routing_tables(self):
@@ -146,6 +149,7 @@ class QKDTopoExt(Topology):
         for super_node in self.super_qkd_nodes.values():
             for tr in super_node.transceivers.values():
                 if tr.qkd_node.protocol_stack[0].role == 0 and tr.qkd_node.protocol_stack[1].role == 0:
+                    print("[QKD] Start QKD " + tr.qkd_node.name)
                     tr.start_qkd()
     
     def start_messaging(self, tl, rate):
@@ -162,11 +166,18 @@ class QKDTopoExt(Topology):
             for tr in super_node.transceivers.values():
                 tr.qkd_node_p.rate = rate
         
+        print("[Messaging] Start Messaging")
         for super_node in self.super_qkd_nodes.values():
+            # create packet
             text = "ciao" 
             text = bytes(text, 'utf-8') # b'ciao'
             text = list(text)
-            message = {"dest": dest[super_node.name], "payload": text}
+            message = {
+                "src": super_node.name,
+                "dest": dest[super_node.name], 
+                "payload": text, 
+                "hop": 0,
+                "time": None}
             message = json.dumps(message)
             super_node.send_message(tl, dest[super_node.name], message, False)
         
