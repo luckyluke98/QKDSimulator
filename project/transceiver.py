@@ -16,6 +16,7 @@ class Transceiver:
     def add_key_manager(self, qkd_node_km):
         self.qkd_node_km = qkd_node_km
         self.qkd_node_p.add_key_manager(qkd_node_km)
+        self.qkd_node_km.mp = self.qkd_node_p
 
     def send_message(self, tl, plaintext, forwarding):
         if forwarding:
@@ -30,8 +31,6 @@ class Transceiver:
             process = Process(self.qkd_node_p, "start", [plaintext, tl, False])
             event = Event(tl.now() + (time * 1000000000000), process)
             tl.schedule(event)
-        
-        return
  
     def start_qkd(self):
         self.qkd_node_km.send_request()

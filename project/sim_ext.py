@@ -19,6 +19,7 @@ import argparse
 import os
 import pandas as pd
 import numpy
+import psutil
 
 tick = 0
 
@@ -51,10 +52,6 @@ def handler(signal_received, frame):
 
     save_metrics()
 
-    for super_node in network.super_qkd_nodes.values():
-        for tr_node in super_node.transceivers.values():
-            print(len(tr_node.qkd_node_km.keys))
-
     exit(0)
 
 def gen_network(filepath, nodes_number):
@@ -79,7 +76,7 @@ def sim(graph_json_seq, sim_time, key_size, mess_rate):
     timeline = Timeline(sim_time * 1000000000000)
     network = QKDTopoExt(graph_json_seq, timeline)
     
-    network.add_key_managers(key_size, 200)
+    network.add_key_managers(key_size, math.inf)
     network.start_pairing()
     tick = time.time()
     network.start_qkd()
@@ -94,9 +91,8 @@ def sim(graph_json_seq, sim_time, key_size, mess_rate):
     print("Execution time %.2f sec" % (time.time() - tick))
     print("Simulation time %.2f sec" % (timeline.now() * 1.0e-12))
 
-    for super_node in network.super_qkd_nodes.values():
-        for tr_node in super_node.transceivers.values():
-            print(len(tr_node.qkd_node_km.keys))
+    process = psutil.Process()
+    print(process.memory_info().rss/1000000000)  # in bytes 
 
 def main():
     global current_sim

@@ -1,7 +1,7 @@
 from enum import Enum, auto
 import json
 import numpy
-
+import collections
 
 from sequence.topology.node import Node
 from sequence.protocol import Protocol
@@ -50,26 +50,19 @@ class MessagingProtocol(Protocol):
         self.del_mess = 0
         self.drop_mess = 0
         self.sent_mess = 0
+        self.buffer = collections.deque()
 
     def init(self):
         pass
 
-    def start(self, text: str, tl, forwarding):
-        if not forwarding:
-            print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
-            MessagingProtocol.sent_messages += 1
-            self.sent_mess += 1
-            time = numpy.random.exponential(self.rate, 1)[0]
-            process = Process(self, "start", [text, tl, False])
-            event = Event(tl.now() + (time * 1000000000000), process)
-            tl.schedule(event)
-            
-        if len(self.key_manager.keys) > 0:
+    # evento che viene schedulato dal keymanager appena una chiave viene generata
+    def send(self, tl):
+        if len(self.buffer) > 0:
             key = self.key_manager.consume()
             key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
-            
-            packet = json.loads(text)
-            
+
+            packet = json.loads(self.buffer.pop())
+
             message = packet["payload"]
             message = bytes(message) # b'str'
             
@@ -84,27 +77,87 @@ class MessagingProtocol(Protocol):
             new_msg.payload = json.dumps(packet)
             new_msg.protocol_type = type(self)
             
+            #send_message QKDNode
             self.own.send_message(self.other_node, new_msg)
-                
+
+    def start(self, text: str, tl, forwarding):
+        if not forwarding:
+            print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
+            MessagingProtocol.sent_messages += 1
+            self.sent_mess += 1
+            time = numpy.random.exponential(self.rate, 1)[0]
+            process = Process(self, "start", [text, tl, False])
+            event = Event(tl.now() + (time * 1000000000000), process)
+            tl.schedule(event)
+
+        if len(self.buffer) == 0 and len(self.key_manager.keys) > 0:
+            
+            self.buffer.appendleft(text)
+            self.send(tl)
+            # key = self.key_manager.consume()
+            # key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
+            
+            # packet = json.loads(text)
+            
+            # message = packet["payload"]
+            # message = bytes(message) # b'str'
+            
+            # key = key[0:len(message)]
+            
+            # ciphertext = OneTimePad.encrypt(message, key)
+            # ciphertext = list(ciphertext)
+            
+            # packet["payload"] = ciphertext
+            
+            # new_msg = Message(MsgType.TEXT_MESS, self.other_name)
+            # new_msg.payload = json.dumps(packet)
+            # new_msg.protocol_type = type(self)
+            
+            # #send_message QKDNode
+            # self.own.send_message(self.other_node, new_msg)
+
         else:
-            packet = json.loads(text)
-            MessagingProtocol.dropped_messages += 1
-            self.drop_mess += 1
+            self.buffer.appendleft(text)
+            
+        # if len(self.key_manager.keys) > 0:
+        #     key = self.key_manager.consume()
+        #     key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
+            
+        #     packet = json.loads(text)
+            
+        #     message = packet["payload"]
+        #     message = bytes(message) # b'str'
+            
+        #     key = key[0:len(message)]
+            
+        #     ciphertext = OneTimePad.encrypt(message, key)
+        #     ciphertext = list(ciphertext)
+            
+        #     packet["payload"] = ciphertext
+            
+        #     new_msg = Message(MsgType.TEXT_MESS, self.other_name)
+        #     new_msg.payload = json.dumps(packet)
+        #     new_msg.protocol_type = type(self)
+            
+        #     self.own.send_message(self.other_node, new_msg)
+                
+        # else:
+        #     packet = json.loads(text)
+        #     MessagingProtocol.dropped_messages += 1
+        #     self.drop_mess += 1
 
-            if packet["hop"] == 0:
-                MessagingProtocol.append_metrics(
-                    packet["src"], packet["dest"], False, False, self.own.name, packet["hop"], 
-                    packet["time"]* 1.0e-12, self.own.timeline.now() * 1.0e-12, 
-                    (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
-            else:
-                MessagingProtocol.append_metrics(
-                    packet["src"], packet["dest"], True, False, self.own.name, packet["hop"], 
-                    packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
-                    (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
+        #     if packet["hop"] == 0:
+        #         MessagingProtocol.append_metrics(
+        #             packet["src"], packet["dest"], False, False, self.own.name, packet["hop"], 
+        #             packet["time"]* 1.0e-12, self.own.timeline.now() * 1.0e-12, 
+        #             (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
+        #     else:
+        #         MessagingProtocol.append_metrics(
+        #             packet["src"], packet["dest"], True, False, self.own.name, packet["hop"], 
+        #             packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
+        #             (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
 
-            print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
-        
-        return
+        #     print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
 
     def received_message(self, src: str, msg: Message):
         assert msg.msg_type == MsgType.TEXT_MESS
