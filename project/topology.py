@@ -13,6 +13,7 @@ from transceiver import Transceiver
 from messaging import MessagingProtocol
 from key_manager import KeyManager
 from custom_channel import CustomChannel
+from qber import FSOQKD
 
 import re
 import json
@@ -23,6 +24,7 @@ class QKDTopoExt(Topology):
     QKD_NODE = "QKDNode"
     P_FIDELITY = "polarization_fidelity"
     B_RATE = "bit_rate"
+    P_DIM = 8064 #bit
     
     def __init__(self, conf_file_name: str, tl):
         self.super_qkd_nodes = {}
@@ -53,7 +55,20 @@ class QKDTopoExt(Topology):
                     
                     src_tr_name = "tr_" + src_node_name + "_to_" + dst_node_name
                     dst_tr_name = "tr_" + dst_node_name + "_to_" + src_node_name
-                    src_node = QKDNode(src_tr_name, self.timeline)
+
+                    #For lightsource component
+                    qc_bit_rate = qc[self.B_RATE]
+                    qc_distance = qc[self.DISTANCE]
+
+                    # mean_photon_num, numero medio di fotoni per periodo
+                    ls_arg = {"LightSource" : 
+                        {
+                            "frequency" : qc_bit_rate,
+                            "mean_photon_num" : 1
+                        }
+                    }
+
+                    src_node = QKDNode(src_tr_name, self.timeline, component_templates = ls_arg)
                     
                     tr_node_p = MessagingProtocol(src_node, "msgp", "msgp", dst_tr_name, self.super_qkd_nodes[super_node_name])
                     tr_node = Transceiver(src_node, tr_node_p)
@@ -74,6 +89,10 @@ class QKDTopoExt(Topology):
                     if cc[self.SRC] == src_node_name and cc[self.DST] == dst_node_name:
                         cc_name = cc[self.NAME]
                         cc_distance = cc[self.DISTANCE]
+                        cc_bit_rate = cc[self.B_RATE]
+
+                        packet_rate = 1 / (cc_bit_rate / self.P_DIM)
+                        tr.qkd_node_p.packet_rate = packet_rate
                         
                         cchannel = ClassicalChannel(cc_name, self.timeline, cc_distance)
                         cchannel.set_ends(tr.qkd_node, dst_tr_name)
@@ -83,11 +102,14 @@ class QKDTopoExt(Topology):
                     if qc[self.SRC] == src_node_name and qc[self.DST] == dst_node_name:
                         qc_name = qc[self.NAME]
                         qc_distance = qc[self.DISTANCE]
-                        qc_attenuation = qc[self.ATTENUATION]
-                        qc_polarization_fidelity = qc[self.P_FIDELITY]
+                        qc_bit_rate = qc[self.B_RATE]
+
+                        #Calcolo BER
+                        new_f = FSOQKD()
+                        BER = new_f.get_rate(qc_distance, qc_bit_rate)[2]
                         
-                        qchannel = CustomChannel(qc_name, self.timeline, 0, qc_distance, 0.9)
-                        #qchannel = QuantumChannel(qc_name, self.timeline, qc_attenuation, qc_distance, 0.90)
+                        #qchannel = CustomChannel(qc_name, self.timeline, 0, qc_distance, 1 - BER, bit_rate = qc_bit_rate)
+                        qchannel = QuantumChannel(qc_name, self.timeline, 0, qc_distance, 1 - BER, frequency = qc_bit_rate)
                         qchannel.set_ends(tr.qkd_node, dst_tr_name)
                         
     def generate_routing_tables(self):
@@ -152,34 +174,63 @@ class QKDTopoExt(Topology):
                     print("[QKD] Start QKD " + tr.qkd_node.name)
                     tr.start_qkd()
     
-    def start_messaging(self, tl, rate):
+    def start_messaging(self, tl, mess_rate, buff_capacity, traffic):
         node_num = len(self.super_qkd_nodes)
         dest = {}
-        for super_node in self.super_qkd_nodes.keys():
-            dst_node_name = f"node{random.randrange(0, node_num)}"
-            while super_node == dst_node_name:
+
+        if traffic == None:
+            for super_node in self.super_qkd_nodes.keys():
                 dst_node_name = f"node{random.randrange(0, node_num)}"
-            
-            dest[super_node] = dst_node_name
+                while super_node == dst_node_name:
+                    dst_node_name = f"node{random.randrange(0, node_num)}"
+                
+                dest[super_node] = dst_node_name
+        
+        else: # se è specificato un traffico
+            with open(traffic, 'r') as f:
+                trf = json.load(f)
+
+                pckts = trf['packets']
+                for p in pckts:
+                    dest[p['src_node']] = p['dst_node']
         
         for super_node in self.super_qkd_nodes.values():
             for tr in super_node.transceivers.values():
-                tr.qkd_node_p.rate = rate
+                tr.qkd_node_p.mess_rate = mess_rate
+                tr.qkd_node_p.buffer_capacity = buff_capacity
         
         print("[Messaging] Start Messaging")
-        for super_node in self.super_qkd_nodes.values():
-            # create packet
-            text = "ciao" 
-            text = bytes(text, 'utf-8') # b'ciao'
-            text = list(text)
-            message = {
-                "src": super_node.name,
-                "dest": dest[super_node.name], 
-                "payload": text, 
-                "hop": 0,
-                "time": None}
-            message = json.dumps(message)
-            super_node.send_message(tl, dest[super_node.name], message, False)
+
+        if traffic == None:
+            for super_node in self.super_qkd_nodes.values():
+                # create packet
+                text = "ciao" 
+                text = bytes(text, 'utf-8') # b'ciao'
+                text = list(text)
+                message = {
+                    "src": super_node.name,
+                    "dest": dest[super_node.name], 
+                    "payload": text, 
+                    "hop": 0,
+                    "time": None}
+                message = json.dumps(message)
+                super_node.send_message(tl, dest[super_node.name], message, False)
+        else:
+            for super_node in dest.keys():
+                text = "ciao" 
+                text = bytes(text, 'utf-8') # b'ciao'
+                text = list(text)
+                message = {
+                    "src": super_node,
+                    "dest": dest[super_node], 
+                    "payload": text, 
+                    "hop": 0,
+                    "time": None}
+                message = json.dumps(message)
+                self.super_qkd_nodes[super_node].send_message(tl, dest[super_node], message, False)
+                
+
+
         
                     
                     

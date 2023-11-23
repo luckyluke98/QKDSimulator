@@ -9,9 +9,11 @@ from sequence.qkd.BB84 import pair_bb84_protocols
 from sequence.qkd.cascade import pair_cascade_protocols
 from sequence.topology.node import QKDNode
 
-from sequence.qkd.cascade import pair_cascade_protocols
+from time import sleep, perf_counter
+from threading import Thread
 
 import os
+import sys
 import psutil
 
 class KeyManager():
@@ -20,18 +22,95 @@ class KeyManager():
         self.lower_protocols = []
         self.keysize = keysize
         self.num_keys = num_keys
-        self.keys = []
-        self.times = []
+        #self.keys = []
+        #self.times = []
         
     def send_request(self):
         for p in self.lower_protocols:
             p.push(self.keysize, self.num_keys) # interface for cascade to generate keys
             
     def pop(self, key): # interface for cascade to return generated keys
-        self.keys.append(key)
-        self.times.append(self.timeline.now() * 1e-9)
-        print(self.timeline.now()* 1e-9)
+        return
+        #self.keys.append(key)
+        #self.times.append(self.timeline.now() * 1e-9)
+        #print(self.timeline.now()* 1e-9)
+
+def profile_node_memory(n):
+            #BB84 & Cascade
+    size = int(sys.getsizeof(n.protocol_stack[0].key_bits)) + \
+            int(sys.getsizeof(n.protocol_stack[0].key_lengths)) + \
+            int(sys.getsizeof(n.protocol_stack[0].basis_lists)) + \
+            int(sys.getsizeof(n.protocol_stack[0].bit_lists)) + \
+            int(sys.getsizeof(n.protocol_stack[0].keys_left_list)) + \
+            int(sys.getsizeof(n.protocol_stack[0].end_run_times)) + \
+            int(sys.getsizeof(n.protocol_stack[0].error_rates)) + \
+            int(sys.getsizeof(n.protocol_stack[0].throughputs)) + \
+            int(sys.getsizeof(n.protocol_stack[1].bits)) + \
+            int(sys.getsizeof(n.protocol_stack[1].checksum_tables)) + \
+            int(sys.getsizeof(n.protocol_stack[1].another_checksums)) + \
+            int(sys.getsizeof(n.protocol_stack[1].index_to_block_id_lists)) + \
+            int(sys.getsizeof(n.protocol_stack[1].valid_keys)) + \
+            int(sys.getsizeof(n.protocol_stack[1].block_id_to_index_lists)) + \
+            int(sys.getsizeof(n.protocol_stack[1].upper_protocols))
+
+    return size
+
+
+def task(n1, n2, n3, n4, n5, n6,n7,n8,n9,n10,
+        n11,n12,n13,n14,n15,n16,n17,n18,n19,n20,
+        n21,n22,n23,n24,n25,n26,n27,n28,n29,n30,
+        n31,n32,n33,n34,n35,n36,n37,n38,n39,n40,
+        n41,n42):
+    while True:
+        sleep(3)
+        s = profile_node_memory(n1) + \
+            profile_node_memory(n2) + \
+            profile_node_memory(n3) + \
+            profile_node_memory(n4) + \
+            profile_node_memory(n5) + \
+            profile_node_memory(n6) + \
+            profile_node_memory(n7) + \
+            profile_node_memory(n8) + \
+            profile_node_memory(n9) + \
+            profile_node_memory(n10) + \
+            profile_node_memory(n11) + \
+            profile_node_memory(n12) + \
+            profile_node_memory(n13) + \
+            profile_node_memory(n14) + \
+            profile_node_memory(n15) + \
+            profile_node_memory(n16) + \
+            profile_node_memory(n17) + \
+            profile_node_memory(n18) + \
+            profile_node_memory(n19) + \
+            profile_node_memory(n20) + \
+            profile_node_memory(n21) + \
+            profile_node_memory(n22) + \
+            profile_node_memory(n23) + \
+            profile_node_memory(n24) + \
+            profile_node_memory(n25) + \
+            profile_node_memory(n26) + \
+            profile_node_memory(n27) + \
+            profile_node_memory(n28) + \
+            profile_node_memory(n29) + \
+            profile_node_memory(n30) + \
+            profile_node_memory(n31) + \
+            profile_node_memory(n32) + \
+            profile_node_memory(n33) + \
+            profile_node_memory(n34) + \
+            profile_node_memory(n35) + \
+            profile_node_memory(n36) + \
+            profile_node_memory(n37) + \
+            profile_node_memory(n38) + \
+            profile_node_memory(n39) + \
+            profile_node_memory(n40) + \
+            profile_node_memory(n41) + \
+            profile_node_memory(n42)
+
+        print(s)
+        print("==============================")
         
+
+      
 def test(sim_time, keysize):
     """
     sim_time: duration of simulation time (ms)
@@ -576,8 +655,19 @@ def test(sim_time, keysize):
     km41.send_request()
 
     tick = time.time()
+
+    t1 = Thread(target=task, args=(
+        n1, n2, n3, n4, n5, n6,n7,n8,n9,n10,
+        n11,n12,n13,n14,n15,n16,n17,n18,n19,n20,
+        n21,n22,n23,n24,n25,n26,n27,n28,n29,n30,
+        n31,n32,n33,n34,n35,n36,n37,n38,n39,n40,
+        n41,n42)
+    )
+    t1.start()
+
     tl.init()
     tl.run()
+
     print("execution time %.2f sec" % (time.time() - tick))
 
     process = psutil.Process()

@@ -2,6 +2,7 @@ from enum import Enum, auto
 import json
 import numpy
 import collections
+import csv
 
 from sequence.topology.node import Node
 from sequence.protocol import Protocol
@@ -12,6 +13,7 @@ from sequence.kernel.process import Process
 from sequence.kernel.event import Event
 
 from onetimepad import OneTimePad
+from pympler import asizeof
 
 class MsgType(Enum):
 
@@ -23,20 +25,9 @@ class MessagingProtocol(Protocol):
     # For Metrics
     delivered_messages = 0
     dropped_messages = 0
-    sent_messages = 0
-
-    d = {
-        'Packet': [],
-        'Source': [],
-        'Destination': [],
-        'Sent': [],
-        'Delivered': [],
-        'Dropped': [],
-        'Num. Hop': [],
-        'Sending Time': [],
-        'Sim. Time': [],
-        'Tot. Time': []
-    }
+    
+    sim_path = None
+    sim_command = None
 
     def __init__(self, own: Node, name: str, other_name: str, other_node: str, superQKD):
         super().__init__(own, name)
@@ -46,18 +37,23 @@ class MessagingProtocol(Protocol):
         self.other_node = other_node
         self.super_qkd = superQKD
         self.key_manager = None
-        self.rate = None
+
+        self.mess_rate = None
+        self.packet_rate = None
+
+        #For metrics
         self.del_mess = 0
         self.drop_mess = 0
-        self.sent_mess = 0
+
+        #Buffer
         self.buffer = collections.deque()
+        self.buffer_capacity = None
 
     def init(self):
         pass
 
-    # evento che viene schedulato dal keymanager appena una chiave viene generata
     def send(self, tl):
-        if len(self.buffer) > 0:
+        if len(self.buffer) > 0 and len(self.key_manager.keys) > 0:
             key = self.key_manager.consume()
             key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
 
@@ -80,84 +76,56 @@ class MessagingProtocol(Protocol):
             #send_message QKDNode
             self.own.send_message(self.other_node, new_msg)
 
+            if len(self.buffer) > 0 and len(self.key_manager.keys) > 0:
+                #Simula service time tra invii
+                #time = numpy.random.exponential(self.service_rate, 1)[0]
+                time = self.packet_rate
+                process = Process(self, "send", [tl])
+                event = Event(tl.now() + (time * 1.0e12), process)
+                tl.schedule(event)
+            
+
     def start(self, text: str, tl, forwarding):
         if not forwarding:
             print(f"[{self.own.name}]\nMessage sent. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
-            MessagingProtocol.sent_messages += 1
-            self.sent_mess += 1
-            time = numpy.random.exponential(self.rate, 1)[0]
-            process = Process(self, "start", [text, tl, False])
-            event = Event(tl.now() + (time * 1000000000000), process)
+            
+            time = numpy.random.exponential(self.mess_rate, 1)[0]
+            packet = json.loads(text)
+            packet["time"] = tl.now() + (time * 1.0e12)
+            plaintext = json.dumps(packet)
+
+            process = Process(self, "start", [plaintext, tl, False])
+            event = Event(tl.now() + (time * 1.0e12), process)
             tl.schedule(event)
 
         if len(self.buffer) == 0 and len(self.key_manager.keys) > 0:
-            
             self.buffer.appendleft(text)
-            self.send(tl)
-            # key = self.key_manager.consume()
-            # key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
-            
-            # packet = json.loads(text)
-            
-            # message = packet["payload"]
-            # message = bytes(message) # b'str'
-            
-            # key = key[0:len(message)]
-            
-            # ciphertext = OneTimePad.encrypt(message, key)
-            # ciphertext = list(ciphertext)
-            
-            # packet["payload"] = ciphertext
-            
-            # new_msg = Message(MsgType.TEXT_MESS, self.other_name)
-            # new_msg.payload = json.dumps(packet)
-            # new_msg.protocol_type = type(self)
-            
-            # #send_message QKDNode
-            # self.own.send_message(self.other_node, new_msg)
+            # Sveglia la send
+            #time = numpy.random.exponential(self.service_rate, 1)[0]
+            time = self.packet_rate
+            process = Process(self, "send", [tl])
+            event = Event(tl.now() + (time * 1.0e12), process)
+            tl.schedule(event)
 
+        elif len(self.buffer) < self.buffer_capacity:
+            self.buffer.appendleft(text)
         else:
-            self.buffer.appendleft(text)
-            
-        # if len(self.key_manager.keys) > 0:
-        #     key = self.key_manager.consume()
-        #     key = key.to_bytes((key.bit_length() + 7) // 8, 'big')
-            
-        #     packet = json.loads(text)
-            
-        #     message = packet["payload"]
-        #     message = bytes(message) # b'str'
-            
-        #     key = key[0:len(message)]
-            
-        #     ciphertext = OneTimePad.encrypt(message, key)
-        #     ciphertext = list(ciphertext)
-            
-        #     packet["payload"] = ciphertext
-            
-        #     new_msg = Message(MsgType.TEXT_MESS, self.other_name)
-        #     new_msg.payload = json.dumps(packet)
-        #     new_msg.protocol_type = type(self)
-            
-        #     self.own.send_message(self.other_node, new_msg)
-                
-        # else:
-        #     packet = json.loads(text)
-        #     MessagingProtocol.dropped_messages += 1
-        #     self.drop_mess += 1
+            print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
+            MessagingProtocol.dropped_messages += 1
+            self.drop_mess += 1
+            packet = json.loads(text)
 
-        #     if packet["hop"] == 0:
-        #         MessagingProtocol.append_metrics(
-        #             packet["src"], packet["dest"], False, False, self.own.name, packet["hop"], 
-        #             packet["time"]* 1.0e-12, self.own.timeline.now() * 1.0e-12, 
-        #             (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
-        #     else:
-        #         MessagingProtocol.append_metrics(
-        #             packet["src"], packet["dest"], True, False, self.own.name, packet["hop"], 
-        #             packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
-        #             (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
+            if forwarding:
+                self.append_metrics(
+                    packet["src"], packet["dest"], True, False, self.own.name, packet["hop"], 
+                    packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
+                    (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
+            else:
+                self.append_metrics(
+                    packet["src"], packet["dest"], False, False, self.own.name, packet["hop"], 
+                    packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
+                    (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
 
-        #     print(f"[{self.own.name}]\nMessage dropped. At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
 
     def received_message(self, src: str, msg: Message):
         assert msg.msg_type == MsgType.TEXT_MESS
@@ -179,7 +147,7 @@ class MessagingProtocol(Protocol):
         if packet["dest"] == self.super_qkd.name:
             MessagingProtocol.delivered_messages += 1
             self.del_mess += 1
-            MessagingProtocol.append_metrics(
+            self.append_metrics(
                 packet["src"], packet["dest"], True, True, None, packet["hop"], 
                 packet["time"] * 1.0e-12, self.own.timeline.now() * 1.0e-12, 
                 (self.own.timeline.now() * 1.0e-12) - (packet["time"] * 1.0e-12))
@@ -190,24 +158,19 @@ class MessagingProtocol(Protocol):
 
         else:
             packet["payload"] = list(plaintext)
-            print(f"[{self.own.name}]\nForwarding... At simulation time: {self.own.timeline.now() * 1.0e-12} s\n")
+            print(f"[{self.own.name}]\nMessage received. At simulation time: {self.own.timeline.now() * 1.0e-12} s. Forwarding ...\n")
             self.super_qkd.send_message(self.own.timeline, packet["dest"], json.dumps(packet), True)
 
     def add_key_manager(self, key_manager):
         self.key_manager = key_manager
 
-    @staticmethod
-    def append_metrics(src, dest, sent, deliv, drop, num_hop, send_time, sim_time, time):
-        MessagingProtocol.d["Packet"].append(len(MessagingProtocol.d["Packet"]))
-        MessagingProtocol.d["Source"].append(src)
-        MessagingProtocol.d["Destination"].append(dest)
-        MessagingProtocol.d["Sent"].append(sent)
-        MessagingProtocol.d["Delivered"].append(deliv)
-        MessagingProtocol.d["Dropped"].append(drop)
-        MessagingProtocol.d["Num. Hop"].append(num_hop)
-        MessagingProtocol.d["Sending Time"].append(send_time)
-        MessagingProtocol.d["Sim. Time"].append(sim_time)
-        MessagingProtocol.d["Tot. Time"].append(time)
+    #For metrics
+    def append_metrics(self, src, dest, sent, deliv, drop, num_hop, send_time, sim_time, time):
+        row = [MessagingProtocol.sim_command, str(src), str(dest), str(sent), str(deliv), str(drop), str(num_hop), str(send_time), str(sim_time), str(time)]
+
+        with open(MessagingProtocol.sim_path + 'packet_result.csv', 'a') as file:
+            writer = csv.writer(file)
+            writer.writerow(row)
 
 
         

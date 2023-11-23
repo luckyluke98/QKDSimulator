@@ -26,7 +26,7 @@ def netparse(filepath, savepath):
             'destination': 'node' + str(l['target']),
             'attenuation': 0.0002,
             'distance': 1000,
-            'polarization_fidelity' : 1
+            'bit_rate' : 1000_000_000
         }
         qchannels_list.append(qchannel_dict)
 
@@ -47,7 +47,7 @@ def netparse(filepath, savepath):
             'destination': 'node' + str(l['source']),
             'attenuation': 0.0002,
             'distance': 1000,
-            'polarization_fidelity' : 1
+            'bit_rate' : 1000_000_000
         }
         qchannels_list.append(qchannel_dict)
 

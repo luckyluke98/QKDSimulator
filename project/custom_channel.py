@@ -14,6 +14,7 @@ class CustomChannel(OpticalChannel):
                  polarization_fidelity=1.0, light_speed=2e-4, bit_rate=-1):
         super().__init__(name, timeline, attenuation, distance, polarization_fidelity, light_speed)
         self.delay = -1
+        self.frequency = bit_rate
 
     def init(self) -> None:
         self.delay = round(self.distance / self.light_speed)

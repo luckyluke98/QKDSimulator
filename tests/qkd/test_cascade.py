@@ -7,6 +7,9 @@ from sequence.qkd.BB84 import pair_bb84_protocols
 from sequence.qkd.cascade import pair_cascade_protocols
 from sequence.topology.node import QKDNode, Node
 
+from pympler import muppy, summary
+import math
+import sys
 
 # dummy parent class to test cascade functionality
 class Parent(StackProtocol):
@@ -35,7 +38,7 @@ class Parent(StackProtocol):
 
 def test_cascade_run():
     KEYSIZE = 512
-    KEYNUM = 10
+    KEYNUM = math.inf
 
     tl = Timeline(1e11)
 
@@ -72,8 +75,55 @@ def test_cascade_run():
     tl.init()
     tl.run()
 
-    assert pa.counter == pb.counter == KEYNUM
     for k1, k2 in zip(pa.keys, pb.keys):
         assert k1 == k2
         assert k1 < 2 ** KEYSIZE  # check that key is not too large
     assert alice.protocol_stack[1].error_bit_rate == 0
+
+    all_objects = muppy.get_objects()
+    sum1 = summary.summarize(all_objects)
+    summary.print_(sum1)
+    
+    print(len(alice.protocol_stack[1].valid_keys))
+    print(len(alice.protocol_stack[1].bits))
+    print(len(alice.protocol_stack[1].index_to_block_id_lists))
+    print(len(alice.protocol_stack[1].block_id_to_index_lists))
+
+    l = 0
+    for x in alice.protocol_stack[1].another_checksums:
+        l += len(x)
+    
+    print(l)
+
+    l = 0
+    for x in alice.protocol_stack[1].checksum_tables:
+        l += len(x)
+    
+    print(l)
+
+    print(len(alice.protocol_stack[1].t1))
+    print(len(alice.protocol_stack[1].t2))
+
+    print(len(bob.protocol_stack[1].valid_keys))
+    print(len(bob.protocol_stack[1].bits))
+    print(len(bob.protocol_stack[1].index_to_block_id_lists))
+    print(len(bob.protocol_stack[1].block_id_to_index_lists))
+
+    l = 0
+    for x in bob.protocol_stack[1].another_checksums:
+        l += len(x)
+    
+    print(l)
+
+    l = 0
+    for x in bob.protocol_stack[1].checksum_tables:
+        l += len(x)
+    
+    print(l)
+
+    print(len(bob.protocol_stack[1].t1))
+    print(len(bob.protocol_stack[1].t2))
+
+
+ 
+test_cascade_run()

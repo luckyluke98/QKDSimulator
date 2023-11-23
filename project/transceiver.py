@@ -24,12 +24,12 @@ class Transceiver:
             event = Event(tl.now(), process)
             tl.schedule(event)
         else:
-            time = numpy.random.exponential(self.qkd_node_p.rate, 1)[0]
+            time = numpy.random.exponential(self.qkd_node_p.mess_rate, 1)[0]
             packet = json.loads(plaintext)
-            packet["time"] = tl.now() + (time * 1000000000000)
+            packet["time"] = tl.now() + (time * 1.0e12)
             plaintext = json.dumps(packet)
             process = Process(self.qkd_node_p, "start", [plaintext, tl, False])
-            event = Event(tl.now() + (time * 1000000000000), process)
+            event = Event(tl.now() + (time * 1.0e12), process)
             tl.schedule(event)
  
     def start_qkd(self):
